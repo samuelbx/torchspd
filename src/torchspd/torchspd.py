@@ -51,11 +51,11 @@ class _SpectralCore(torch.autograd.Function):
     else:
       L, V = eig
     y = (V * f(L).unsqueeze(-2)) @ V.transpose(-2, -1)
+    ctx.return_eig = bool(return_eig)
     if ctx.return_eig:
       ctx.mark_non_differentiable(L, V)
     ctx.save_for_backward(L, V)
     ctx.g_builder = g_builder
-    ctx.return_eig = bool(return_eig)
     if ctx.return_eig:
       return y, L, V
     else:

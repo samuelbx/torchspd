@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "torchspd"
+version = "0.1.1"
+description = "Differentiable spectral operators on symmetric positive definite (SPD) matrices in PyTorch"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Samuel Boïté" }]
+requires-python = ">=3.9"
+dependencies = ["torch>=2.1"]
+
+keywords = [
+  "pytorch",
+  "symmetric positive definite",
+  "matrix functions",
+  "linear algebra",
+  "autograd",
+  "logm",
+  "sqrtm",
+  "expm",
+  "numerical linear algebra"
+]
+
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Operating System :: OS Independent"
+]
+
+[project.urls]
+Homepage = "https://github.com/samuelbx/torchspd"
+Documentation = "https://github.com/samuelbx/torchspd#readme"
+Source = "https://github.com/samuelbx/torchspd"
+Tracker = "https://github.com/samuelbx/torchspd/issues"
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["torchspd", "torchspd.*"]
