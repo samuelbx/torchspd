@@ -52,10 +52,7 @@ By Daleckii-Krein, the Fréchet derivative of $f(X)$ at $X=A$, applied to the sy
 $$\mathrm{d}F_A(H)=V\left(G\circ (V^\top HV)\right)V^\top,$$
 where $\circ$ denotes the coordinatewise matrix product, and
 $$
-G_{ij}=\begin{cases}
-\frac{f(\lambda_{i})-f(\lambda_{j})}{\lambda_{i}-\lambda_{j}} & \text{if}\;\lambda_{i}\ne\lambda_{j}\\
-f'(\lambda_{i}) & \text{otherwise}
-\end{cases}.
+G_{ij} = \frac{f(\lambda_i)-f(\lambda_j)}{\lambda_i-\lambda_j} \quad (\text{with } G_{ii}=f'(\lambda_i)).
 $$
 
 Here are the values of $G_{ij}$ in common special cases: they are used in the implementation. We note $\delta=\frac{\lambda_i-\lambda_j}{\lambda_j}$ and $\mathrm{sinhc}(x)=\frac{\sinh(x)}{x}$ ($\mathrm{sinhc}(0)=1$).
