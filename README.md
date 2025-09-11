@@ -33,7 +33,7 @@ S = spd.sqrtm(A, eig=(L, V))
 P = spd.powm(A, 0.3, eig=(L, V))
 ```
 
-More generally, `apply_quad` lets you define your own spectral function $f$ and its derivative $f'$, and computes $F(A)=V\,f(\Lambda)\,V^\top$ differentiably w.r.t. $A=V\Lambda V^\top$.
+More generally, `apply_quad` lets you define your own spectral function $f$ and its derivative $f'$, and computes $F(A)=V f(\Lambda) V^\top$ differentiably w.r.t. $A=V\Lambda V^\top$.
 
 ```python
 def f(x): return torch.log1p(x)
@@ -55,13 +55,13 @@ $$G_{ij} = \frac{f(\lambda_i)-f(\lambda_j)}{\lambda_i-\lambda_j} \quad (\text{wi
 
 Here are the values of $G_{ij}$ in common special cases: they are used in the implementation. We note $\delta=\frac{\lambda_i-\lambda_j}{\lambda_j}$ and $\mathrm{sinhc}(x)=\frac{\sinh(x)}{x}$ ($\mathrm{sinhc}(0)=1$).
 
-| Function $f(x)$                   | Off-diagonal terms $G_{ij},\, i\neq j$                                                                 | Diagonal terms $G_{ii}$          |
+| Function $f(x)$                   | Off-diagonal terms $G_{ij}, i\neq j$                                                                 | Diagonal terms $G_{ii}$          |
 |-----------------------------------|---------------------------------------------------------------------------------------------------------|----------------------------------|
 | $f(x) = \sqrt{x}$                 | $\dfrac{1}{\sqrt{\lambda_i} + \sqrt{\lambda_j}}$                                                        | $\dfrac{1}{2\sqrt{\lambda_i}}$   |
-| $f(x) = 1/\sqrt{x}$               | $-\dfrac{1}{\sqrt{\lambda_i}\,\sqrt{\lambda_j}\,(\sqrt{\lambda_i}+\sqrt{\lambda_j})}$                   | $-\dfrac{1}{2\lambda_i^{3/2}}$   |
-| $f(x) = \log x$                   | $\dfrac{1}{\lambda_j}\,\dfrac{\log(1+\delta)}{\delta}$ | $\dfrac{1}{\lambda_i}$           |
-| $f(x) = e^{x}$                    | $e^{(\lambda_i+\lambda_j)/2}\,\mathrm{sinhc}\!\left(\tfrac{\lambda_i-\lambda_j}{2}\right)$              | $e^{\lambda_i}$                  |
-| $f(x) = x^p,\; p\in\mathbb{R}$    | $\lambda_j^{\,p-1}\,\dfrac{(1-\delta)^{p}-1}{\delta}$ | $p\,\lambda_i^{\,p-1}$           |
+| $f(x) = 1/\sqrt{x}$               | $-\dfrac{1}{\sqrt{\lambda_i}\sqrt{\lambda_j}(\sqrt{\lambda_i}+\sqrt{\lambda_j})}$                   | $-\dfrac{1}{2\lambda_i^{3/2}}$   |
+| $f(x) = \log x$                   | $\dfrac{1}{\lambda_j}\dfrac{\log(1+\delta)}{\delta}$ | $\dfrac{1}{\lambda_i}$           |
+| $f(x) = e^{x}$                    | $e^{(\lambda_i+\lambda_j)/2}\mathrm{sinhc}\!\left(\tfrac{\lambda_i-\lambda_j}{2}\right)$              | $e^{\lambda_i}$                  |
+| $f(x) = x^p,\; p\in\mathbb{R}$    | $\lambda_j^{p-1}\dfrac{(1-\delta)^{p}-1}{\delta}$ | $p\lambda_i^{p-1}$           |
 
 We also use the Taylor expansions of these formulas when $\lambda_i \approx \lambda_j$, replacing divided differences by series in $\delta = (\lambda_i-\lambda_j)/\lambda_j$ to avoid numerical cancellation.
 
