@@ -42,6 +42,10 @@ def _sinhc(x: torch.Tensor) -> torch.Tensor:
   val = torch.sinh(x) / x
   return torch.where(small, series, val)
 
+def _pairwise_tol(xi: torch.Tensor, xj: torch.Tensor, factor: float) -> torch.Tensor:
+  scale = torch.maximum(torch.maximum(xi.abs(), xj.abs()), torch.ones_like(xi))
+  return scale * xi.new_tensor(_eps(xi.dtype)).sqrt() * factor
+
 class _SpectralCore(torch.autograd.Function):
   @staticmethod
   def forward(ctx, a: torch.Tensor, f: Callable[[torch.Tensor], torch.Tensor], g_builder: Callable[[torch.Tensor], torch.Tensor],
@@ -115,7 +119,7 @@ def apply_quad(a: torch.Tensor, f: Callable[[torch.Tensor], torch.Tensor], df: C
     return _diag_set(G, df(Lc))
   return _apply_spectral(a, f, g_builder, eig, return_eig)
 
-def sqrtm(a: torch.Tensor, *, eig: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, return_eig: bool = False):
+def sqrtm(a: torch.Tensor, *, eig: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, return_eig: bool = False, threshold_factor: float = 1.0):
   '''
   Matrix square root f(A) = A^{1/2} = V Λ^{1/2} V^T.
 
@@ -126,15 +130,21 @@ def sqrtm(a: torch.Tensor, *, eig: Optional[Tuple[torch.Tensor, torch.Tensor]] =
   - return_eig: if True, also return (Λ, V).
   '''
   def f(L: torch.Tensor) -> torch.Tensor:
-    return L.clamp_min(_tiny(L.dtype)).sqrt()
+    return L.clamp_min(0).sqrt()
   def g_builder(L: torch.Tensor) -> torch.Tensor:
-    Lc = L.clamp_min(_tiny(L.dtype))
-    si, sj = _pairwise_grids(f(Lc))
-    G = 1 / (si + sj)
-    return G
+    s = L.clamp_min(0).sqrt()
+    si, sj = _pairwise_grids(s)
+    d = si + sj
+    tol = _pairwise_tol(si, sj, threshold_factor)
+    d = torch.where(d >= tol, d, tol)
+    G = 1 / d
+    zero = (si < tol) & (sj < tol)
+    G = torch.where(zero, torch.zeros_like(G), G)
+    diag = torch.where(s > 0, .5 / s, torch.zeros_like(s))
+    return _diag_set(G, diag)
   return _apply_spectral(a, f, g_builder, eig, return_eig)
 
-def invsqrtm(a: torch.Tensor, *, eig: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, return_eig: bool = False):
+def invsqrtm(a: torch.Tensor, *, eig: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, return_eig: bool = False, threshold_factor: float = 1.0):
   '''
   Matrix inverse square root f(A) = A^{-1/2} = V Λ^{-1/2} V^T.
 
@@ -145,13 +155,19 @@ def invsqrtm(a: torch.Tensor, *, eig: Optional[Tuple[torch.Tensor, torch.Tensor]
   - return_eig: if True, also return (Λ, V).
   '''
   def f(L: torch.Tensor) -> torch.Tensor:
-    return L.clamp_min(_tiny(L.dtype)).sqrt().reciprocal()
+    s = L.clamp_min(0).sqrt()
+    return torch.where(s > 0, s.reciprocal(), torch.zeros_like(s))
   def g_builder(L: torch.Tensor) -> torch.Tensor:
-    Lc = L.clamp_min(_tiny(L.dtype))
-    s = Lc.sqrt()
+    s = L.clamp_min(0).sqrt()
     si, sj = _pairwise_grids(s)
-    G = -1 / (si * sj * (si + sj))
-    return G
+    d = si + sj
+    tol = _pairwise_tol(si, sj, threshold_factor)
+    safe = (si >= tol) & (sj >= tol)
+    d = torch.where(d >= tol, d, tol)
+    denom = si * sj * d
+    G = torch.where(safe, -1 / denom, torch.zeros_like(d))
+    diag = torch.where(s > 0, -0.5 * L.pow(-1.5), torch.zeros_like(L))
+    return _diag_set(G, diag)
   return _apply_spectral(a, f, g_builder, eig, return_eig)
 
 def logm(a: torch.Tensor, *, eig: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, return_eig: bool = False, threshold_factor: float = 1.0):
@@ -201,7 +217,7 @@ def expm(a: torch.Tensor, *, eig: Optional[Tuple[torch.Tensor, torch.Tensor]] = 
     return _diag_set(G, torch.exp(L))
   return _apply_spectral(a, f, g_builder, eig, return_eig)
 
-def powm(a: torch.Tensor, p: float, *, eig: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, return_eig: bool = False, threshold_factor: float = 1.0):
+def powm(a: torch.Tensor, p: float, *, eig: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, return_eig: bool = False, threshold_factor: float = 1.0, mask_zeroblock: bool = True):
   '''
   Matrix power f(A) = A^p = V Λ^p V^T for real p.
 
@@ -215,18 +231,28 @@ def powm(a: torch.Tensor, p: float, *, eig: Optional[Tuple[torch.Tensor, torch.T
     differences by a series expansion when λi, λj are close.
   '''
   def f(L: torch.Tensor) -> torch.Tensor:
-    return L.clamp_min(_tiny(L.dtype)).pow(p)
+    if p >= 0:
+      return L.clamp_min(0).pow(p)
+    else:
+      Lp = torch.zeros_like(L)
+      pos = L > 0
+      Lp[pos] = L[pos].pow(p)
+      return Lp
   def g_builder(L: torch.Tensor) -> torch.Tensor:
-    Lc = L.clamp_min(_tiny(L.dtype))
+    if p == 0:
+      return torch.zeros_like(L).unsqueeze(-1).expand(*L.shape, L.shape[-1])
+    Lc = torch.where(L > 0, L, torch.zeros_like(L))
     li, lj = _pairwise_grids(Lc)
-    delta = (li - lj) / lj
-    r = torch.expm1(p * torch.log1p(delta)) / delta
-    mask = _stability_mask(li, lj, threshold_factor)
-    s = p * (1 + (p - 1) * delta / 2 + (p - 1) * (p - 2) * (delta ** 2) / 6
-             + (p - 1) * (p - 2) * (p - 3) * (delta ** 3) / 24)
-    r = torch.where(mask, s, r)
-    G = lj.pow(p - 1) * r
-    return _diag_set(G, p * Lc.pow(p - 1))
+    fi, fj = li.pow(p), lj.pow(p)
+    diff = li - lj
+    tol = _pairwise_tol(li, lj, threshold_factor)
+    denom = torch.where(diff.abs() >= tol, diff, torch.where(diff >= 0, tol, -tol))
+    G = (fi - fj) / denom
+    if mask_zeroblock:
+      zero = (li < tol) & (lj < tol)
+      G = torch.where(zero, torch.zeros_like(G), G)
+    diag = torch.where(Lc > 0, p * Lc.pow(p - 1), torch.zeros_like(Lc))
+    return _diag_set(G, diag)
   return _apply_spectral(a, f, g_builder, eig, return_eig)
 
 def proj_psd(a: torch.Tensor) -> torch.Tensor:
