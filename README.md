@@ -1,4 +1,4 @@
-# torchspd
+# torchspd 🔥📐
 
 Tiny toolkit of spectral operators on symmetric positive definite (SPD) matrices in PyTorch. It gives you differentiable `sqrtm`, `invsqrtm`, `logm`, `powm`, `expm`, a PSD projection, and a generic `apply_quad` for custom functions. Everything is batched, works with autograd (first order), and is written to be numerically stable near repeated or tiny eigenvalues.
 
