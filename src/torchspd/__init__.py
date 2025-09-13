@@ -18,5 +18,4 @@ __all__ = [
   'sqrtm',
   'invsqrtm',
   'proj_psd',
-  '__version__',
 ]
